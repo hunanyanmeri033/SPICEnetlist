@@ -107,11 +107,11 @@ class Indep_source():
         self.neg = neg
         self.spec = source_spec
 
-class voltage_source():
+class voltage_source(Indep_source):
     def __init__(self, name, pos, neg, source_spec):
         super().__init__(name, pos, neg, source_spec)
 
-class current_source():
+class current_source(Indep_source):
     def __init__(self, name, pos, neg, source_spec):
         super().__init__(name, pos, neg, source_spec)
 
@@ -138,6 +138,13 @@ class M():
         self.s = s
         self.b = b
         self.model_name = model_name
+
+class model():
+    def __init__(self, name, type, param_list):
+        self.name = name
+        self.type = type
+        self.param_list = param_list
+        
 #graph
 class node:
     def __init__(self, source, target):
@@ -148,81 +155,149 @@ class node:
     def connect(self, target):
         self.connect.append(target)
 
-for element in lines:
-    match element[0]:
-        case '*':
-            comment(element[0:])
-        case 'R':
-            lele = element.split()
-            resistor(lele[0], lele[1], lele[2], lele[3])
-            print('Resistor')
-        case 'C':
-            lele = element.split()
-            capacitor(lele[0], lele[1], lele[2], lele[3])
-            print('Capacitor')
-        case 'L':
-            lele = element.split()
-            inductor(lele[0], lele[1], lele[2], lele[3])
-            print('inductor')
-        case 'V':
-            lele = element.split()
-            voltage_source(lele[0], lele[1], lele[2], lele[3:])
-        case 'I':
-            lele = element.split()
-            current_source(lele[0], lele[1], lele[2], lele[3:])
-        case 'D': # "D" <name> <node1> <node2> <model_name>
-            lele = element.split()
-            D(lele[0], lele[1], lele[2], [3])
-        case 'Q': # "Q" <name> <c> <b> <e> <model_name>
-            lele = element.split()
-            Q(lele[0], lele[1], lele[2], lele[3], lele[4])
-        case 'M': #  "M" <name> <d> <g> <s> <b> <model_name>
-            lele = element.split()
-            M(lele[0], lele[1], lele[2], lele[3], lele[4], lele[5])
-        case '.':
-            lele = element.split()
-            if lele[0] == ".subckt":
-                
+class subckt():
+    def __init__(self, name, node_list, statement_list):
+        self.name = name
+        self.node_list = node_list
+        self.statement_list = statement_list
+        self.inst = []
+    def instance(self, name, nodes, params = []):
+        self.inst.append([name], )
+print(type(lines))
+i = 0
+subcircuits = []
+
+def parser(lines):
+    i = 0
+    parsed_lines = []
+    while i != len(lines):
+        if not lines[i]:
+            print('empty')
+            i = i+1
+            continue
+        match lines[i][0]:
+            case '*':
+                parsed_lines.append(comment(lines[i][0:]))
+                print("comment")
+                i = i+1
+            case 'R':
+                lele = lines[i].split()
+                parsed_lines.append(resistor(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3]))
+                print('Resistor')
+                i = i+1
+            case 'C':
+                lele = lines[i].split()
+                parsed_lines.append(capacitor(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3]))
+                print('Capacitor')
+                i = i+1
+            case 'L':
+                lele = lines[i].split()
+                parsed_lines.append(inductor(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3]))
+                print('inductor')
+                i = i+1
+            case 'V':
+                lele = lines[i].split()
+                parsed_lines.append(voltage_source(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3:]))
+                print("Independednt voltage source")
+                i = i+1
+            case 'I':
+                lele = lines[i].split()
+                parsed_lines.append(current_source(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3:]))
+                print("independent current source")
+                i = i+1
+            case 'D': # "D" <name> <node1> <node2> <model_name>
+                lele = lines[i].split()
+                parsed_lines.append(D(lele[0][1:len(lele[0])-1], lele[1], lele[2], [3]))
+                print("D")
+                i = i+1
+            case 'Q': # "Q" <name> <c> <b> <e> <model_name>
+                lele = lines[i].split()
+                parsed_lines.append((lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3], lele[4]))
+                print('Q')
+                i = i+1
+            case 'M': #  "M" <name> <d> <g> <s> <b> <model_name>
+                lele = lines[i].split()
+                parsed_lines.append(M(lele[0][1:len(lele[0])-1], lele[1], lele[2], lele[3], lele[4], lele[5]))
+                print('M' + lines[i])
+                i = i +1
+            case '.':
+                lele = lines[i].split()
+                if lele[0] == ".subckt":
+                    print("subcircuit")
+                    i = i + 1
+                    start_i = i
+                    end_i = i
+                    while lines[end_i][0] != ".":
+                        end_i = end_i+1
+                    print(lines[start_i:end_i])
+                    parsed_lines.append(subckt(lele[1], [lele[2:]], parser(lines[start_i:end_i])))
+                    subcircuits.append(subckt(lele[1], [lele[2:]], parser(lines[start_i:end_i])))
+                    print(end_i)
+                    i=end_i+1
+                    print("end")
+                elif lele[0] == ".op":
+                    print(".op")
+                    i = i+1
+                elif lele[0] == ".dc":
+                    i=i+1
+                    pass
+                elif lele[0] == ".ac":
+                    i = i+1
+                    pass
+                elif lele[0] == ".tran":
+                    i=i+1
+                    pass
+                elif lele[0] == ".print":
+                    i=i+1
+                    pass
+                elif lele[0] == ".plot":
+                    i=i+1
+                    pass
+                elif lele[0] == ".model":
+                    print("model")
+                    parsed_lines.append(model(lele[1], lele[2], [lele[3][1:], lele[4][:(len(lele[4])-1)]]))
+                    #print(i)
+                    i = i+1
+                elif lele[0] == ".end":
+                    print("circuit end")
+                    i=i+1
+            case "X":
+                print("instance")
+                lele = lines[i].split()
+                inst = lele[0][1:]
+                subcircuit_name = lele[len(lele)-1]
+                nodes = lele[1:len(lele)-1]
+                """
+                i = 0
+                while True:
+                    if not lele[i][0].isalpha() or "0":
+                        break
+                    lele[i] = lele[i][1:]
+                    for l in lele[i]:
+                        if not l.isalpha() or not l.isdigit() or not "_":
+                            break
+                    nodes.append(lele[i])
+                    i = i+1
+                """
+                for element in parsed_lines:
+                    if type(element).__name__ == "subckt" and element.name == subcircuit_name:
+                        element.instance(inst, nodes, subcircuit_name)
+                i = i+1
+                print("instance")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-for element in netlist:
-    match element[0]:
-        case 'R': #Rname N+ N- Value
-            print('resistor')
-            space_index = element.find(" ", 0)
-            name = element[1:space_index]
-            next_index = element.find(" ", space_index+1)
-            pos = element[space_index+1:next_index]
-            space_index = element.find(" ", next_index+1)
-            print('space_index' + str(space_index+1) + ' ' + 'next_index' + str(next_index))
-            neg = element[next_index+1:space_index]
-            next_index = element.find(" ", space_index)
-            value = element[next_index+1:]
-            print(name)
-            print(pos)
-            print(neg)
-            print(value)
-        case 'C':
-            print('capacitors')
-            print("capacitors")
-        case 'L':
-            print("Inductor")
-        case 'V':
-            print("voltage source")
-        case 'I':
-            print("current source")
-
-
-
+                            
+    print("hello")
+    return parsed_lines
+print(parser(lines))
+"""
+for element in parser(lines):
+    
+    if type(element).__name__ == 'resistor':
+        node(element.node1, element.node2) 
+    elif type(element).__name__== 'capacitor':
+        node(element.node1, element.node2)
+    elif type(element).__name__ == 'inductor':
+        node(element.node1, element.node2)
+    """
